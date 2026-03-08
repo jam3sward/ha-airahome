@@ -36,6 +36,17 @@
       "cloud_unavailable": "The cloud service is currently unavailable. Please try again later.",
       "cloud_error": "An error occurred while communicating with the cloud service. Please try again later."
     },
+    "exceptions": {
+      "temperature_not_provided": {
+        "message": "Temperature not provided. Please specify a temperature in °С."
+      },
+      "invalid_temperature": {
+        "message": "Temperature must be one of: {allowed_temperatures}°C. Received: {temperature}°C. Use + / - button if unsure."
+      },
+      "scheduler_active": {
+        "message": "Cannot set temperature while scheduler is active. Please disable the scheduler first."
+      }
+    },
     "abort": {
       "unsupported_device": "The selected device is not supported. Only Aira Heat Pumps can be configured for now.",
       "already_configured": "This device is already configured. Please select another device.",
@@ -60,17 +71,6 @@
         },
         "data_description": {}
       }
-    }
-  },
-  "errors": {
-    "temperature_not_provided": {
-      "message": "Temperature not provided"
-    },
-    "invalid_temperature": {
-      "message": "Temperature must be one of: {allowed_temperatures}°C. Received: {temperature}°C. Use + / - button if unsure."
-    },
-    "scheduler_active": {
-      "message": "Cannot set temperature while scheduler is active. Please disable the scheduler first."
     }
   },
   "entity": {
@@ -168,6 +168,9 @@
       "zone_2_circulator": { "name": "Zone 2 Circulator" },
       "thermostat_1_low_battery": { "name": "Thermostat 1 Low Battery" },
       "thermostat_2_low_battery": { "name": "Thermostat 2 Low Battery" }
+    },
+    "water_heater": {
+      "water_heater": { "name": "DHW Tank" }
     }
   },
   "device_type": {

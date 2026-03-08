@@ -45,7 +45,7 @@ async def async_setup_entry(
     aira = hass.data[DOMAIN][entry.entry_id]["aira"]
     
     water_heaters: list[WaterHeaterEntity] = [
-        AiraWaterHeater(coordinator, entry, aira),
+        AiraWaterHeater(coordinator, entry, aira)
     ]
     
     async_add_entities(water_heaters, True)
@@ -58,7 +58,7 @@ async def async_setup_entry(
 class AiraWaterHeater(WaterHeaterEntity):
     """Representation of an Aira Heat Pump DHW (Domestic Hot Water) system."""
 
-    _attr_name = "DHW Tank"
+    _attr_has_entity_name = True
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = (
         WaterHeaterEntityFeature.TARGET_TEMPERATURE
@@ -86,7 +86,9 @@ class AiraWaterHeater(WaterHeaterEntity):
         super().__init__()
         self.coordinator = coordinator
         self._device_uuid = entry.data[CONF_DEVICE_UUID]
-        self._attr_unique_id = f"{self._device_uuid}_water_heater"
+        unique_id_suffix = "water_heater"
+        self._attr_unique_id = f"{self._device_uuid}_{unique_id_suffix}"
+        self._attr_translation_key = unique_id_suffix
         self.aira = aira
 
         self._attr_device_info = DeviceInfo(**{
@@ -97,28 +99,8 @@ class AiraWaterHeater(WaterHeaterEntity):
             "model": "Heat Pump",
         })
 
-    async def _get_translation(self, key: str, fallback: str = "", **format_args) -> str:
-        """Get a localized translation for the given key."""
-        try:
-            translations = await translation.async_get_translations(
-                self.hass, self.hass.config.language, "errors", {DOMAIN}
-            )
-
-            # The full path for component translations
-            # component.airahome.state.invalid_temperature.message
-            translation_key = f"component.{DOMAIN}.errors.{key}.message"
-            message = translations.get(translation_key, fallback)
-            
-            _LOGGER.debug("Translation for key %s (using %s): %s", key, translation_key, message)
-            if format_args and message and "{" in message:
-                message = message.format(**format_args)
-            return message
-        except Exception as e:
-            _LOGGER.debug("Translation error: %s", str(e))
-            return fallback
-
     @property
-    def current_temperature(self):
+    def current_temperature(self): # type: ignore
         """Return the current temperature."""
         if not self.coordinator.data:
             return None
@@ -129,7 +111,7 @@ class AiraWaterHeater(WaterHeaterEntity):
             return None
     
     @property
-    def target_temperature(self):
+    def target_temperature(self): # type: ignore
         """Return the setpoint temperature considering scheduled temperatures."""
         try:
             value = None
@@ -156,26 +138,22 @@ class AiraWaterHeater(WaterHeaterEntity):
         except (KeyError, ValueError, TypeError):
             return None
     
-    async def _set_temperature(self, temperature: float) -> None:
+    async def _set_temperature(self, temperature: float) -> bool | list[dict]:
         """Set the water heater temperature to the specified value."""
         _LOGGER.debug("Setting water heater temperature to %s°C", temperature)
         command_in = SetTargetHotWaterTemperature(temperature=temperature)
-        
-        def run_command():
-            # Execute the command in a non-async context
-            return list(self.aira.ble.run_command(command_in=command_in))
             
         try:
-            # Run the blocking operation in the executor
-            updates = await self.hass.async_add_executor_job(run_command)
+            updates = list(await self.aira.ble._run_command(command_in=command_in)) # type: ignore
             if "succeeded" in updates[-1]:
                 return True
         except RuntimeError as e:
             _LOGGER.error("Error setting water heater temperature: %s", str(e))
-            return False
+        
+        return False
 
     async def _fake_temperature_set(self, temperature: float) -> None:
-        """Fake setting the water heater temperature (for testing)."""
+        """Fake setting the water heater temperature (for propagating change to the entire integration asap)."""
         _LOGGER.debug("Faking setting water heater temperature to %s°C", temperature)
         try:
             self.coordinator.data['state']['target_hot_water_temperature'] = temperature
@@ -192,22 +170,31 @@ class AiraWaterHeater(WaterHeaterEntity):
             if 'set_dhw_setpoint' in action:
                 using_scheduler = True
                 break
+
+        previous_temp = self.target_temperature
+        if not previous_temp:
+            return
+
         if using_scheduler:
             _LOGGER.warning("Cannot set temperature manually while scheduler is active.")
-            error_msg = await self._get_translation("scheduler_active", "Cannot set temperature manually while scheduler is active.")
+            await self._fake_temperature_set(previous_temp)  # Revert to previous temperature to ensure state is consistent
             self.async_write_ha_state()
-            raise ServiceValidationError(error_msg)
-                
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="scheduler_active"
+            )
+
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
-            error_msg = await self._get_translation("temperature_not_provided", "Temperature not provided")
             self.async_write_ha_state()
-            raise ServiceValidationError(error_msg)
-        
-        previous_temp = self.target_temperature
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="temperature_not_provided"
+            )
+
         temp = float(temperature)
         
-        if previous_temp is not None and abs(int(temp*10 - previous_temp*10)) == self._attr_target_temperature_step*10:
+        if self._attr_target_temperature_step and previous_temp is not None and abs(int(temp*10 - previous_temp*10)) == self._attr_target_temperature_step*10:
             # used + - buttons, calculate closest allowed temperature
             if temp < previous_temp: # pressed -
                 # If we're already at the minimum allowed temperature, stay there
@@ -235,27 +222,39 @@ class AiraWaterHeater(WaterHeaterEntity):
             # Check if the temperature is in the allowed list
             if temp not in self._allowed_temperatures:
                 allowed_temps_str = ", ".join(map(str, self._allowed_temperatures))
-                error_msg = await self._get_translation(
-                    "invalid_temperature",
-                    f"Temperature must be one of: {allowed_temps_str}°C. Received: {temperature}°C",
-                    allowed_temperatures=allowed_temps_str,
-                    temperature=temperature
-                )
                 self.async_write_ha_state()
-                raise ServiceValidationError(error_msg)
-            
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="invalid_temperature",
+                    translation_placeholders={
+                        "allowed_temperatures": allowed_temps_str,
+                        "temperature": temperature
+                    },
+                )
             if temp:
                 if await self._set_temperature(temp):
                     _LOGGER.debug("Selected temperature allowed. Setting water heater temperature to %s°C", temp)
                     await self._fake_temperature_set(temp)
                     return
 
-        #_LOGGER.debug("Set temperature process completed. Refreshing state.")
-        await self._fake_temperature_set(previous_temp)  # Ensure state is consistent
-        self.async_write_ha_state()
+        if previous_temp:
+            await self._fake_temperature_set(previous_temp)  # Ensure state is consistent
+            self.async_write_ha_state()
 
     @property
-    def current_operation(self):
+    async def is_away_mode_on(self) -> bool | None: # type: ignore
+        """Return the current away mode status."""
+        if not self.coordinator.data:
+            return None
+        
+        try:
+            return True # TODO: remove test only
+            return self.coordinator.data["state"]["away_mode_enabled"]
+        except (KeyError, ValueError, TypeError):
+            return None
+    
+    @property
+    def current_operation(self): # type: ignore
         """Return current operation status."""
         status = None
         if not self.coordinator.data:
