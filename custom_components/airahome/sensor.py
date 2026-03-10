@@ -1222,7 +1222,7 @@ class AiraEnumSensor(AiraSensorBase):
                 for path in self._data_path:
                     value = value[path]
 
-                return str(value).replace(self._replace, "").replace("_", " ").title()
+                return str(value).replace(self._replace, "").lower()
             except (KeyError, ValueError, TypeError):
                 return None
         return None

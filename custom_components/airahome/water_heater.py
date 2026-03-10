@@ -158,6 +158,7 @@ class AiraWaterHeater(WaterHeaterEntity):
         try:
             self.coordinator.data['state']['target_hot_water_temperature'] = temperature
             self._attr_target_temperature = temperature
+            self.async_write_ha_state() # force state machine to update immediately with the new "fake" target temperature
         except (KeyError, TypeError):
             pass
 
@@ -177,8 +178,6 @@ class AiraWaterHeater(WaterHeaterEntity):
 
         if using_scheduler:
             _LOGGER.warning("Cannot set temperature manually while scheduler is active.")
-            await self._fake_temperature_set(previous_temp)  # Revert to previous temperature to ensure state is consistent
-            self.async_write_ha_state()
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="scheduler_active"
@@ -186,7 +185,6 @@ class AiraWaterHeater(WaterHeaterEntity):
 
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
-            self.async_write_ha_state()
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="temperature_not_provided"
@@ -222,7 +220,6 @@ class AiraWaterHeater(WaterHeaterEntity):
             # Check if the temperature is in the allowed list
             if temp not in self._allowed_temperatures:
                 allowed_temps_str = ", ".join(map(str, self._allowed_temperatures))
-                self.async_write_ha_state()
                 raise ServiceValidationError(
                     translation_domain=DOMAIN,
                     translation_key="invalid_temperature",
@@ -239,20 +236,7 @@ class AiraWaterHeater(WaterHeaterEntity):
 
         if previous_temp:
             await self._fake_temperature_set(previous_temp)  # Ensure state is consistent
-            self.async_write_ha_state()
 
-    @property
-    async def is_away_mode_on(self) -> bool | None: # type: ignore
-        """Return the current away mode status."""
-        if not self.coordinator.data:
-            return None
-        
-        try:
-            return True # TODO: remove test only
-            return self.coordinator.data["state"]["away_mode_enabled"]
-        except (KeyError, ValueError, TypeError):
-            return None
-    
     @property
     def current_operation(self): # type: ignore
         """Return current operation status."""

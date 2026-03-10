@@ -36,17 +36,6 @@
       "cloud_unavailable": "The cloud service is currently unavailable. Please try again later.",
       "cloud_error": "An error occurred while communicating with the cloud service. Please try again later."
     },
-    "exceptions": {
-      "temperature_not_provided": {
-        "message": "Temperature not provided. Please specify a temperature in °С."
-      },
-      "invalid_temperature": {
-        "message": "Temperature must be one of: {allowed_temperatures}°C. Received: {temperature}°C. Use + / - button if unsure."
-      },
-      "scheduler_active": {
-        "message": "Cannot set temperature while scheduler is active. Please disable the scheduler first."
-      }
-    },
     "abort": {
       "unsupported_device": "The selected device is not supported. Only Aira Heat Pumps can be configured for now.",
       "already_configured": "This device is already configured. Please select another device.",
@@ -57,6 +46,17 @@
       "cannot_connect": "Failed to connect to the selected device. Please ensure your aira device is powered on and within range.",
       "not_aira_device": "The discovered device is not an aira device. Only Aira Heat Pumps can be configured for now.",
       "unknown": "An unexpected error occurred during setup."
+    }
+  },
+  "exceptions": {
+    "temperature_not_provided": {
+      "message": "Temperature not provided. Please specify a temperature in °С."
+    },
+    "invalid_temperature": {
+      "message": "Temperature must be one of: {allowed_temperatures}°C. Received: {temperature}°C. Use + / - button if unsure."
+    },
+    "scheduler_active": {
+      "message": "Cannot set temperature while scheduler is active. Please disable the scheduler first."
     }
   },
   "options": {
@@ -115,8 +115,27 @@
       "energy_balance": { "name": "Energy Balance" },
       "flow_meter_1": { "name": "Primary Circuit Flow" },
       "flow_meter_2": { "name": "DHW Tank Inlet Flow" },
-      "operating_status": { "name": "Operating Status" },
-      "active_state": { "name": "HP Active State" },
+      "operating_status": {
+        "name": "Operating Status",
+        "state": {
+          "unspecified": "Unspecified",
+          "standby": "Standby",
+          "auto": "Auto",
+          "user_specific": "User Specific"
+        }
+      },
+      "active_state": {
+        "name": "HP Active State",
+        "state": {
+          "unspecified": "Unspecified",
+          "idle": "Idle",
+          "heating": "Heating",
+          "cooling": "Cooling",
+          "dhw": "DHW",
+          "anti_legionella": "Anti-Legionella",
+          "defrosting": "Defrosting"
+        }
+      },
       "led_pattern": { "name": "LED Pattern" },
       "system_rssi": { "name": "BLE Signal Strength" },
       "instant_cop": { "name": "Instant COP" },
@@ -132,7 +151,16 @@
       "zone_1_temp": { "name": "Zone 1 Temperature" },
       "zone_1_humidity": { "name": "Zone 1 Humidity" },
       "zone_1_rssi": { "name": "Zone 1 Signal Strength" },
-      "zone_1_active_state": { "name": "HP Zone 1 State" },
+      "zone_1_active_state": {
+        "name": "HP Zone 1 State",
+        "state": {
+          "unspecified": "Unspecified",
+          "idle": "Idle",
+          "heating": "Heating",
+          "cooling": "Cooling",
+          "heating_cooling": "Heating/Cooling"
+        }
+      },
       "zone_1_valve_position": { "name": "Zone 1 Valve Position" },
       "zone_1_calculated_supply_temp": { "name": "Zone 1 Calculated Supply Temperature" },
       "zone_1_heat_target": { "name": "Zone 1 Heating Target" },
@@ -143,7 +171,16 @@
       "zone_2_temp": { "name": "Zone 2 Temperature" },
       "zone_2_humidity": { "name": "Zone 2 Humidity" },
       "zone_2_rssi": { "name": "Zone 2 Signal Strength" },
-      "zone_2_active_state": { "name": "HP Zone 2 State" },
+      "zone_2_active_state": {
+        "name": "HP Zone 2 State",
+        "state": {
+          "unspecified": "Unspecified",
+          "idle": "Idle",
+          "heating": "Heating",
+          "cooling": "Cooling",
+          "heating_cooling": "Heating/Cooling"
+        }
+      },
       "zone_2_valve_position": { "name": "Zone 2 Valve Position" },
       "zone_2_calculated_supply_temp": { "name": "Zone 2 Calculated Supply Temperature" },
       "zone_2_heat_target": { "name": "Zone 2 Heating Target" },
