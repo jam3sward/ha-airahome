@@ -21,10 +21,10 @@ from homeassistant.components.water_heater.const import (
     STATE_PERFORMANCE,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import translation
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_DEVICE_NAME, CONF_DEVICE_UUID, CONF_MAC_ADDRESS, DEFAULT_SHORT_NAME, DOMAIN
 from .coordinator import AiraDataUpdateCoordinator
@@ -55,7 +55,7 @@ async def async_setup_entry(
 # WATER HEATER
 # ============================================================================
 
-class AiraWaterHeater(WaterHeaterEntity):
+class AiraWaterHeater(CoordinatorEntity, WaterHeaterEntity): # type: ignore
     """Representation of an Aira Heat Pump DHW (Domestic Hot Water) system."""
 
     _attr_has_entity_name = True
@@ -83,8 +83,7 @@ class AiraWaterHeater(WaterHeaterEntity):
         aira: AiraHome
     ) -> None:
         """Initialize the water heater."""
-        super().__init__()
-        self.coordinator = coordinator
+        super().__init__(coordinator)
         self._device_uuid = entry.data[CONF_DEVICE_UUID]
         unique_id_suffix = "water_heater"
         self._attr_unique_id = f"{self._device_uuid}_{unique_id_suffix}"
@@ -228,11 +227,10 @@ class AiraWaterHeater(WaterHeaterEntity):
                         "temperature": temperature
                     },
                 )
-            if temp:
-                if await self._set_temperature(temp):
-                    _LOGGER.debug("Selected temperature allowed. Setting water heater temperature to %s°C", temp)
-                    await self._fake_temperature_set(temp)
-                    return
+            if await self._set_temperature(temp):
+                _LOGGER.debug("Selected temperature allowed. Setting water heater temperature to %s°C", temp)
+                await self._fake_temperature_set(temp)
+                return
 
         if previous_temp:
             await self._fake_temperature_set(previous_temp)  # Ensure state is consistent

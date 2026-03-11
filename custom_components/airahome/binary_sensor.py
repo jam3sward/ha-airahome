@@ -215,12 +215,15 @@ class AiraAlarmsBinarySensor(AiraBaseBinarySensor):
         entry: ConfigEntry,
     ) -> None:
         """Initialise alarms binary sensor."""
-        unique_id_suffix = f"alarms"
+        unique_id_suffix = "alarms"
         super().__init__(coordinator, entry, unique_id_suffix, None)
 
     @property
     def is_on(self) -> bool: # type: ignore
         """Return true if there are active alarms."""
+        if not self.coordinator.data:
+            return False
+        
         state = self.coordinator.data.get("state", {})
         error_meta = state.get("error_metadata", {})
         return bool(

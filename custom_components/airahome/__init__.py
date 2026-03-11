@@ -52,7 +52,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryError("MAC address missing from config entry. Please reconfigure the integration")
 
 
-    device_type = entry.data.get(CONF_INSTALLATION, {}).get("type", "unknown") # unused for now
+    device_type = entry.data.get(CONF_INSTALLATION, {}).get("type", "unknown") # unused for now, will be used to support solar
     
     _LOGGER.info("Setting up Aira Heat Pump integration for device at %s", mac_address)
     
@@ -105,8 +105,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Store the coordinator and AiraHome instance for the platforms to use
     hass.data[DOMAIN][entry.entry_id] = {
         "coordinator": coordinator,
-        "aira": aira,
-        "device_uuid": device_uuid  # TODO CHECK IF NEEDED
+        "aira": aira
     }
     
     # Forward the setup to the platforms
@@ -122,13 +121,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     
     # Get the stored data before cleanup
-    aira = hass.data[DOMAIN].get(entry.entry_id).get("aira")
-    coordinator = hass.data[DOMAIN].get(entry.entry_id).get("coordinator")
+    aira = hass.data[DOMAIN].get(entry.entry_id, {}).get("aira")
 
-    # Stop the coordinator
-    if coordinator:
-        _LOGGER.debug("Data update coordinator stopped")
-        # nothing particular to do here as coordinator is stopped by ha
+    # Coordinator is stopped by homeassistant
     
     # Clean up BLE connection and resources
     if aira and aira.ble:

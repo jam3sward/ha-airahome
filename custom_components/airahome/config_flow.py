@@ -43,45 +43,16 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_MAC_ADDRESS): str,
-    }
-)
 
-async def get_translated_device_type(device_type_key: str, hass: HomeAssistant) -> str:
-    """Get translated device type string."""
+async def _get_translation(hass: HomeAssistant, category: str, key: str) -> str:
     translations = await async_get_translations(
         hass,
         hass.config.language,
-        "device_type",
-        [DOMAIN],
+        category,
+        [DOMAIN]
     )
 
-    return translations.get(f"component.{DOMAIN}.device_type.{device_type_key}", device_type_key)
-
-async def get_translated_zone(num_zones: int, hass: HomeAssistant) -> str:
-    """Get translated zone string."""
-    translations = await async_get_translations(
-        hass,
-        hass.config.language,
-        "zones",
-        [DOMAIN],
-    )
-
-    return translations.get(f"component.{DOMAIN}.zones.{num_zones}", str(num_zones))
-
-async def get_translated_phase(num_phases: int, hass: HomeAssistant) -> str:
-    """Get translated phase string."""
-    translations = await async_get_translations(
-        hass,
-        hass.config.language,
-        "phases",
-        [DOMAIN],
-    )
-
-    return translations.get(f"component.{DOMAIN}.phases.{num_phases}", str(num_phases))
-
+    return translations.get(f"component.{DOMAIN}.{category}.{key}", key)
 
 class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Aira Heat Pump."""
@@ -151,7 +122,7 @@ class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
                 ) #type: ignore
                 
-                if devices and "devices" in devices.keys() and devices["devices"]:
+                if devices and "devices" in devices and devices["devices"]:
                     # Store devices for the next step
                     self._cloud_devices = devices["devices"]
                     _LOGGER.info("Found %d device(s) in the cloud account", len(self._cloud_devices))
@@ -222,7 +193,7 @@ class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="unknown")
 
             if device_type == "heat_pump":
-                _LOGGER.info("Configuring Aira Heat Pump. Device type: %s")
+                _LOGGER.info("Configuring Aira Heat Pump")
                 details: dict[str, dict] = await self.hass.async_add_executor_job(
                         partial(
                             aira.cloud.get_heatpump_details,
@@ -267,7 +238,7 @@ class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
             if device_uuid in already_configured:
                 continue # skip already configured devices
             device_type = device.get("device_id", {}).get("type", "DEVICE_TYPE_UNSPECIFIED").lower().replace("device_type_", "")
-            translated_device_type = await get_translated_device_type(device_type, self.hass)
+            translated_device_type = await _get_translation(self.hass, "device_type", device_type)
             online_status = device.get("online", {}).get("online", False)
             status_str = "🟢" if online_status else "🔴"
             display_name = f"{status_str} {translated_device_type} [{device_uuid}]"
@@ -303,7 +274,6 @@ class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
             
             # Now discover BLE device with this UUID
             _LOGGER.info("Looking for BLE device with UUID: %s", self._uuid)
-            service_info = self._service_info
             mac_address = self._mac_address
             name = self._name
             
@@ -351,7 +321,7 @@ class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
             self._tested = True
             self._service_info = service_info
             self._mac_address = mac_address
-            self._name = service_info.name if service_info else DEFAULT_NAME or DEFAULT_NAME
+            self._name = service_info.name if service_info else DEFAULT_NAME
 
         # Show configuration form
         data_schema = vol.Schema(
@@ -364,16 +334,16 @@ class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_NUM_ZONES,
                     default=self._installation.get(CONF_NUM_ZONES, DEFAULT_NUM_ZONES)
                 ): vol.In({
-                    1: await get_translated_zone(1, self.hass),
-                    2: await get_translated_zone(2, self.hass)
+                    1: await _get_translation(self.hass, "zones", "1"),
+                    2: await _get_translation(self.hass, "zones", "2")
                 }),
                 vol.Required(
                     CONF_NUM_PHASES,
                     default=self._installation.get(CONF_NUM_PHASES, 0)
                 ): vol.In({
-                    0: await get_translated_phase(0, self.hass), # unknown
-                    1: await get_translated_phase(1, self.hass),
-                    3: await get_translated_phase(3, self.hass)
+                    0: await _get_translation(self.hass, "phases", "0"),
+                    1: await _get_translation(self.hass, "phases", "1"),
+                    3: await _get_translation(self.hass, "phases", "3")
                 }),
             }
         )
@@ -527,16 +497,16 @@ class AiraHomeOptionsFlowHandler(OptionsFlowWithReload):
                     CONF_NUM_ZONES,
                     default=current_num_zones
                 ): vol.In({
-                    1: await get_translated_zone(1, self.hass),
-                    2: await get_translated_zone(2, self.hass)
+                    1: await _get_translation(self.hass, "zones", "1"),
+                    2: await _get_translation(self.hass, "zones", "2")
                 }),
                 vol.Required(
                     CONF_NUM_PHASES,
                     default=current_num_phases
                 ): vol.In({
-                    0: await get_translated_phase(0, self.hass), # unknown
-                    1: await get_translated_phase(1, self.hass),
-                    3: await get_translated_phase(3, self.hass)
+                    0: await _get_translation(self.hass, "phases", "0"),
+                    1: await _get_translation(self.hass, "phases", "1"),
+                    3: await _get_translation(self.hass, "phases", "3")
                 }),
             }
         ),

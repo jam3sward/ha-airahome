@@ -48,10 +48,8 @@ class AiraDataUpdateCoordinator(DataUpdateCoordinator):
         self._reconnect_task: asyncio.Task | None = None
         self._reconnect_attempts = 0
         self._max_reconnect_attempts = 5
-        self._update_interval_seconds: float = update_interval # type: ignore
 
         # Timing and success tracking
-        self._last_update_time = None
         self._last_successful_data = None
         self._last_successful_timestamp = None
         
@@ -60,7 +58,6 @@ class AiraDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _fetch_all_data(self, start_time: float, rssi: int | None) -> dict[str, Any]:
         """Fetch all data from the Aira device via BLE."""
-        start_time = perf_counter()
         state_data: dict = await self.aira.ble._get_states() # type: ignore[reportAssignmentType]
 
         await asyncio.sleep(BLE_COMMAND_SLEEP) # ensure BLE_COMMAND_SLEEP between calls
@@ -92,9 +89,6 @@ class AiraDataUpdateCoordinator(DataUpdateCoordinator):
                 system_dict = self._last_successful_data["system_check_state"]
                 successful -= 1
                 _LOGGER.debug("Using stale system_check data due to empty fetch or error")
-
-        # Record completion time for next cycle (monotonic)
-        self._last_update_time = perf_counter()
 
         result = {
             "state": state_dict,
@@ -230,8 +224,6 @@ class AiraDataUpdateCoordinator(DataUpdateCoordinator):
                     stale_result = deepcopy(self._last_successful_data)
                     stale_result["connected"] = False
                     stale_result["rssi"] = rssi  # Update RSSI even if using stale data
-                    #return stale_result # return after the reconnect logic has been handled
-
 
             # Device is not connected, attempt reconnection
             if self._reconnect_attempts < self._max_reconnect_attempts:

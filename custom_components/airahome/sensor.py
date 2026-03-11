@@ -154,7 +154,7 @@ async def async_setup_entry(
         ),
         AiraRotationSpeedSensor(coordinator, entry,
             unique_id_suffix="ou_fan_2_speed",
-            data_path=("system_check_state", "megmet_status", "dc_fan1_running_speed"),
+            data_path=("system_check_state", "megmet_status", "dc_fan2_running_speed"),
             icon="mdi:fan",
         ),
         # Compressor
@@ -406,7 +406,7 @@ async def async_setup_entry(
     num_phases = entry.options.get(CONF_NUM_PHASES, 0)
     _LOGGER.debug("Setting up sensors for %d phases based on config entry options", num_phases)
     if num_phases < 0:
-        _LOGGER.warning("To enable voltage and current sensors configure the number of phases in the integration configuration.", num_phases)
+        _LOGGER.warning("To enable voltage and current sensors configure the number of phases in the integration configuration.")
         num_phases = 0
 
     for i in range(num_phases):
@@ -422,18 +422,6 @@ async def async_setup_entry(
                 icon="mdi:current-ac",
             ),
         ])
-   
-    # Debug: Log the current data structure to help diagnose sensor issues
-    if coordinator.data:
-        _LOGGER.debug("Current coordinator data structure:")
-        # _LOGGER.debug("  state keys: %s", coordinator.data.get("state", {}))
-        # _LOGGER.debug("  flow_data keys: %s", coordinator.data.get("flow_data", {}))
-        # _LOGGER.debug("  system_check_state keys: %s", coordinator.data.get("system_check_state", {}))
-        _LOGGER.debug("  state keys: %s", list(coordinator.data.get("state", {}).keys()))
-        # _LOGGER.debug("  flow_data keys: %s", list(coordinator.data.get("flow_data", {}).keys()))
-        _LOGGER.debug("  system_check_state_state keys: %s", list(coordinator.data.get("system_check_state_state", {}).keys()))
-    else:
-        _LOGGER.warning("Coordinator data is empty - this will cause sensor issues")
     
     async_add_entities(sensors, True)
 
@@ -1294,9 +1282,7 @@ class AiraLEDPatternSensor(AiraSensorBase):
             return "mdi:lightbulb-question"
         
         pattern = self.native_value.upper()
-        if pattern is None:
-            return "mdi:lightbulb-off"
-        elif pattern == "UNSPECIFIED":
+        if pattern == "UNSPECIFIED":
             return "mdi:lightbulb-off"
         elif pattern == "NORMAL":
             return "mdi:lightbulb-on"
@@ -1433,9 +1419,9 @@ class AiraCurveSensor(AiraSensorBase):
         self._heating = heating
 
         if self._heating:
-            self._curve_key = f"heat_curves"
+            self._curve_key = "heat_curves"
         else:
-            self._curve_key = f"cool_curves"
+            self._curve_key = "cool_curves"
 
     @property
     def native_value(self) -> float | None: # type: ignore
@@ -1447,8 +1433,9 @@ class AiraCurveSensor(AiraSensorBase):
             outdoor_temp = float(self.coordinator.data["system_check_state"]["sensor_values"]["outdoor_unit_ambient_temperature"])
 
             # get the heat curve points
-            ambient = self.extra_state_attributes["ambient"]
-            supply = self.extra_state_attributes["supply"]
+            extra_states = self.extra_state_attributes
+            ambient = extra_states["ambient"]
+            supply = extra_states["supply"]
 
             try:
                 # if temperature is lower than lowest ambient, clamp to lowest supply
