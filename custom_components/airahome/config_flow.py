@@ -206,7 +206,7 @@ class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._installation["type"] = device_type
 
                 # Retrieve certificate now for later usage, this way we can avoid storing credentials
-                self._certificate = details.get("heat_pump", {}).get("certificate", None)
+                self._certificate = details.get("heat_pump", {}).get("certificate", {}).get("certificate_pem", None)
                 if tank_size := details.get("heat_pump", {}).get("tank_size", None):
                     if "NONE" not in tank_size and "UNSPECIFIED" not in tank_size:
                         self._installation["tank_size"] = tank_size # store tank size if available

@@ -149,12 +149,12 @@ async def async_setup_entry(
         # Fans
         AiraRotationSpeedSensor(coordinator, entry,
             unique_id_suffix="ou_fan_1_speed",
-            data_path=("system_check_state", "megmet_status", "dc_fan1_running_speed"),
+            data_path=("system_check_state", "megmet_status", "dc_fan_1_running_speed"),
             icon="mdi:fan",
         ),
         AiraRotationSpeedSensor(coordinator, entry,
             unique_id_suffix="ou_fan_2_speed",
-            data_path=("system_check_state", "megmet_status", "dc_fan2_running_speed"),
+            data_path=("system_check_state", "megmet_status", "dc_fan_2_running_speed"),
             icon="mdi:fan",
         ),
         # Compressor
@@ -963,7 +963,7 @@ class AiraPressureSensor(AiraSensorBase):
         return None
 
 # ============================================================================
-# FAN SENSORS
+# ROTATION SPEED SENSORS
 # ============================================================================
 
 class AiraRotationSpeedSensor(AiraSensorBase):

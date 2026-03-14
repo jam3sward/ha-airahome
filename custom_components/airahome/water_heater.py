@@ -143,7 +143,7 @@ class AiraWaterHeater(CoordinatorEntity, WaterHeaterEntity): # type: ignore
         command_in = SetTargetHotWaterTemperature(temperature=temperature)
             
         try:
-            updates = list(await self.aira.ble._run_command(command_in=command_in)) # type: ignore
+            updates = [x async for x in await self.aira.ble._run_command(command_in=command_in)] # type: ignore
             if "succeeded" in updates[-1]:
                 return True
         except RuntimeError as e:
@@ -157,7 +157,7 @@ class AiraWaterHeater(CoordinatorEntity, WaterHeaterEntity): # type: ignore
         try:
             self.coordinator.data['state']['target_hot_water_temperature'] = temperature
             self._attr_target_temperature = temperature
-            self.async_write_ha_state() # force state machine to update immediately with the new "fake" target temperature
+            self.coordinator.async_update_listeners() # force every entity subscribed to the coordinator to update
         except (KeyError, TypeError):
             pass
 

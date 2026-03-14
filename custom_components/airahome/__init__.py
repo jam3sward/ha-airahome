@@ -28,7 +28,7 @@ from .coordinator import AiraDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WATER_HEATER] # TODO  Platform.CLIMATE
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WATER_HEATER, Platform.CLIMATE] # TODO  Platform.CLIMATE
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
