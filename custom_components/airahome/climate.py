@@ -36,8 +36,9 @@ from .coordinator import AiraDataUpdateCoordinator
 from pyairahome.commands import (
     SetZoneSetpoints
 )
-from pyairahome.device.heat_pump.command.v1.set_zone_setpoints_pb2 import ZoneTemperatures, SetZoneSetpoints as _SetZoneSetpointsPb2
+from pyairahome.device.heat_pump.command.v1.set_zone_setpoints_pb2 import ZoneTemperatures, SetZoneSetpoints as _SetZoneSetpointsPb2 # type: ignore
 Kind = _SetZoneSetpointsPb2.Kind
+from pyairahome.commands import EnableHeatingFunction, DisableHeatingFunction, EnableCoolingFunction, DisableCoolingFunction
 from pyairahome import AiraHome
 
 _LOGGER = logging.getLogger(__name__)
@@ -219,6 +220,56 @@ class AiraZoneClimate(AiraClimateBase):
                 state["zone_setpoints_cooling"][zone_key] = cooling
             
             self.coordinator.async_update_listeners() # force every entity subscribed to the coordinator to update
+        except (KeyError, TypeError):
+            pass
+
+    async def _set_mode_on_off(self, heating: bool | None, cooling: bool | None) -> bool:
+        """Helper for setting HVAC mode by toggling heating/cooling functions."""
+        commands = []
+        if heating is not None:
+            if heating:
+                commands.append((EnableHeatingFunction(), "heating", "enabled"))
+            else:
+                commands.append((DisableHeatingFunction(), "heating", "disabled"))
+        if cooling is not None:
+            if cooling:
+                commands.append((EnableCoolingFunction(), "cooling", "enabled"))
+            else:
+                commands.append((DisableCoolingFunction(), "cooling", "disabled"))
+        
+        results = []
+        for command in commands:
+            command_in, mode, action = command
+            try:
+                updates = [x async for x in await self.aira.ble._run_command(command_in=command_in)] # type: ignore
+                if "succeeded" in updates[-1]:
+                    results.append(True)
+            except RuntimeError as e:
+                _LOGGER.error("Error setting %s mode to %s: %s", mode, action, str(e))
+                results.append(False)
+        
+        return all(results)
+
+    def _fake_mode_set(self, heating: bool | None, cooling: bool | None) -> None:
+        """Fake setting the allowed pump mode state (for propagating change to the entire integration asap)."""
+        try:
+            state = self.coordinator.data["state"]
+            current = state.get("allowed_pump_mode_state", "").lower().replace("pump_mode_state_", "")
+            has_heat = "heating" in current if heating is None else heating
+            has_cool = "cooling" in current if cooling is None else cooling
+
+            if has_heat and has_cool:
+                new_state = "PUMP_MODE_STATE_HEATING_COOLING"
+            elif has_heat:
+                new_state = "PUMP_MODE_STATE_HEATING"
+            elif has_cool:
+                new_state = "PUMP_MODE_STATE_COOLING"
+            else:
+                new_state = ""
+
+            state["allowed_pump_mode_state"] = new_state
+            _LOGGER.debug("Faking allowed_pump_mode_state to %s", new_state)
+            self.coordinator.async_update_listeners()
         except (KeyError, TypeError):
             pass
 
@@ -417,3 +468,25 @@ class AiraZoneClimate(AiraClimateBase):
         if await self._set_setpoints(setpoint_heating, setpoint_cooling):
             await self._fake_setpoint_set(setpoint_heating, setpoint_cooling)
 
+    async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
+        """Set the HVAC mode by toggling the global heating / cooling functions."""
+        _LOGGER.debug("Zone %d: setting HVAC mode to %s", self._zone, hvac_mode)
+
+        heating: bool | None = None
+        cooling: bool | None = None
+
+        if hvac_mode == HVACMode.HEAT:
+            heating = True if self._supports_heating else None
+            cooling = False if self._supports_cooling else None
+        elif hvac_mode == HVACMode.COOL:
+            heating = False if self._supports_heating else None
+            cooling = True if self._supports_cooling else None
+        elif hvac_mode == HVACMode.HEAT_COOL:
+            heating = True if self._supports_heating else None
+            cooling = True if self._supports_cooling else None
+        elif hvac_mode == HVACMode.OFF:
+            heating = False if self._supports_heating else None
+            cooling = False if self._supports_cooling else None
+
+        if await self._set_mode_on_off(heating, cooling):
+            self._fake_mode_set(heating, cooling)
