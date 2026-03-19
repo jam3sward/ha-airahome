@@ -26,7 +26,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_DEVICE_NAME, CONF_DEVICE_UUID, CONF_MAC_ADDRESS, DEFAULT_SHORT_NAME, DOMAIN
+from .const import CONF_DEVICE_NAME, CONF_DEVICE_UUID, CONF_INSTALLATION, CONF_MAC_ADDRESS, DEFAULT_SHORT_NAME, DOMAIN
 from .coordinator import AiraDataUpdateCoordinator
 
 from pyairahome.commands import SetTargetHotWaterTemperature
@@ -73,8 +73,7 @@ class AiraWaterHeater(CoordinatorEntity, WaterHeaterEntity): # type: ignore
     _attr_min_temp = 15 # min to 15 because schedule can take it to 15, but we don't allow the user to set it
     _attr_target_temperature_step = 0.1
     
-    # Define the only allowed temperature values
-    _allowed_temperatures = [50, 55, 65]
+    _allowed_temperatures = [50, 55, 65]  # default; overridden based on tank size in __init__
 
     def __init__(
         self,
@@ -85,6 +84,9 @@ class AiraWaterHeater(CoordinatorEntity, WaterHeaterEntity): # type: ignore
         """Initialize the water heater."""
         super().__init__(coordinator)
         self._device_uuid = entry.data[CONF_DEVICE_UUID]
+        tank_size = entry.data.get(CONF_INSTALLATION, {}).get("tank_size", "")
+        if "100" in tank_size: # since 100 liters is very small aira allows different setpoints
+            self._allowed_temperatures = [55, 60, 65]
         unique_id_suffix = "water_heater"
         self._attr_unique_id = f"{self._device_uuid}_{unique_id_suffix}"
         self._attr_translation_key = unique_id_suffix
@@ -113,26 +115,7 @@ class AiraWaterHeater(CoordinatorEntity, WaterHeaterEntity): # type: ignore
     def target_temperature(self): # type: ignore
         """Return the setpoint temperature considering scheduled temperatures."""
         try:
-            value = None
-            states = self.coordinator.data.get('state', {})
-            scheduler = states.get('scheduler', {})
-            if not scheduler:
-                value = states.get("target_hot_water_temperature", None) # If no scheduler, return current target temperature
-                return round(float(value), 2) if value is not None else None
-            active_actions = scheduler.get('active_actions', [])
-            if not active_actions:
-                value = states.get("target_hot_water_temperature", None) # If no scheduler, return current target temperature
-                return round(float(value), 2) if value is not None else None
-            
-            # Look for dhw (domestic hot water) setpoint in active actions
-            for action in active_actions:
-                if 'set_dhw_setpoint' in action:
-                    dhw_temp = action['set_dhw_setpoint'].get('temperature')
-                    if dhw_temp is not None:
-                        value = dhw_temp
-                    return round(float(value), 2) if value is not None else None
-                
-            value = states.get("target_hot_water_temperature", None) # Fallback to current target temperature
+            value = self.coordinator.data.get("state", {}).get("scheduled_hot_water_temperature")
             return round(float(value), 2) if value is not None else None
         except (KeyError, ValueError, TypeError):
             return None

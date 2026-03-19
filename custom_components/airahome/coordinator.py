@@ -56,6 +56,24 @@ class AiraDataUpdateCoordinator(DataUpdateCoordinator):
         # Initialize coordinator data with empty but valid data structure to prevent sensor crashes
         self.data = deepcopy(DEFAULT_DATA)
 
+    def _calculate_scheduled_hot_water_temperature(self, state_dict: dict) -> float | None:
+        """Calculate the scheduled hot water temperature from scheduler active actions."""
+        try:
+            scheduler = state_dict.get("scheduler", {})
+            if not scheduler:
+                return state_dict.get("target_hot_water_temperature")
+            active_actions = scheduler.get("active_actions", [])
+            if not active_actions:
+                return state_dict.get("target_hot_water_temperature")
+            for action in active_actions:
+                if "set_dhw_setpoint" in action:
+                    dhw_temp = action["set_dhw_setpoint"].get("temperature")
+                    if dhw_temp is not None:
+                        return float(dhw_temp)
+            return state_dict.get("target_hot_water_temperature")
+        except (KeyError, ValueError, TypeError):
+            return None
+
     async def _fetch_all_data(self, start_time: float, rssi: int | None) -> dict[str, Any]:
         """Fetch all data from the Aira device via BLE."""
         state_data: dict = await self.aira.ble._get_states() # type: ignore[reportAssignmentType]
@@ -89,6 +107,8 @@ class AiraDataUpdateCoordinator(DataUpdateCoordinator):
                 system_dict = self._last_successful_data["system_check_state"]
                 successful -= 1
                 _LOGGER.debug("Using stale system_check data due to empty fetch or error")
+
+        state_dict["scheduled_hot_water_temperature"] = self._calculate_scheduled_hot_water_temperature(state_dict)
 
         result = {
             "state": state_dict,

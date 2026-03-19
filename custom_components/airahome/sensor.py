@@ -57,7 +57,11 @@ async def async_setup_entry(
             data_path=("state", "target_hot_water_temperature"),
             icon="mdi:water-thermometer-outline"
         ),
-        AiraScheduledTemperatureSensor(coordinator, entry),
+        AiraTemperatureSensor(coordinator, entry,
+            unique_id_suffix="scheduled_temp",
+            data_path=("state", "scheduled_hot_water_temperature"),
+            icon="mdi:thermometer-water"
+        ),
         AiraTemperatureSensor(coordinator, entry,
             unique_id_suffix="outdoor_temp",
             data_path=("system_check_state", "sensor_values", "outdoor_unit_ambient_temperature"),
@@ -530,46 +534,6 @@ class AiraTemperatureSensor(AiraSensorBase):
             except (KeyError, ValueError, TypeError):
                 return None
         return None
-
-class AiraScheduledTemperatureSensor(AiraSensorBase):
-    """Schedule temperature sensor. Varies based on current schedule/target temperature."""
-
-    _attr_name = "DHW Scheduled Temperature"
-    _attr_device_class = SensorDeviceClass.TEMPERATURE
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_suggested_display_precision = 2
-
-    def __init__(self, coordinator: AiraDataUpdateCoordinator, entry: ConfigEntry) -> None:
-        unique_id_suffix = "scheduled_temp"
-        super().__init__(coordinator, entry, unique_id_suffix, "mdi:thermometer-water")
-
-    @property
-    def native_value(self) -> float | None: # type: ignore # TODO add night cooldown calculation
-        try:
-            value = None
-            states = self.coordinator.data.get('state', {})
-            scheduler = states.get('scheduler', {})
-            if not scheduler:
-                value = states.get("target_hot_water_temperature", None) # If no scheduler, return current target temperature
-                return round(float(value), 2) if value is not None else None
-            active_actions = scheduler.get('active_actions', [])
-            if not active_actions:
-                value = states.get("target_hot_water_temperature", None) # If no scheduler, return current target temperature
-                return round(float(value), 2) if value is not None else None
-            
-            # Look for dhw (domestic hot water) setpoint in active actions
-            for action in active_actions:
-                if 'set_dhw_setpoint' in action:
-                    dhw_temp = action['set_dhw_setpoint'].get('temperature')
-                    if dhw_temp is not None:
-                        value = dhw_temp
-                    return round(float(value), 2) if value is not None else None
-                
-            value = states.get("target_hot_water_temperature", None) # Fallback to current target temperature
-            return round(float(value), 2) if value is not None else None
-        except (KeyError, ValueError, TypeError):
-            return None
 
 # ============================================================================
 # HUMIDITY SENSORS

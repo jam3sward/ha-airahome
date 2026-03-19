@@ -490,3 +490,16 @@ class AiraZoneClimate(AiraClimateBase):
 
         if await self._set_mode_on_off(heating, cooling):
             self._fake_mode_set(heating, cooling)
+
+    async def async_turn_on(self) -> None:
+        """Turn the zone on (restores the most capable supported mode)."""
+        if self._supports_heating and self._supports_cooling:
+            await self.async_set_hvac_mode(HVACMode.HEAT_COOL)
+        elif self._supports_heating:
+            await self.async_set_hvac_mode(HVACMode.HEAT)
+        elif self._supports_cooling:
+            await self.async_set_hvac_mode(HVACMode.COOL)
+
+    async def async_turn_off(self) -> None:
+        """Turn the zone off."""
+        await self.async_set_hvac_mode(HVACMode.OFF)
