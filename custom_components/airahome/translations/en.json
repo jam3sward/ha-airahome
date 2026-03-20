@@ -196,7 +196,8 @@
       "zone_2_cooling_curve": { "name": "Zone 2 Cooling Curve" },
       "software_version": { "name": "Software Version" },
       "ou_software_version": { "name": "Outdoor Software Version" },
-      "platform_version": { "name": "Platform Version" }
+      "platform_version": { "name": "Platform Version" },
+      "dhw_boost_end": { "name": "DHW Boost End" }
     },
     "binary_sensor": {
       "connection": { "name": "Connection Status" },

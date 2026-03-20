@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -27,6 +28,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
+import homeassistant.util.dt as dt_util
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -327,7 +329,9 @@ async def async_setup_entry(
             unique_id_suffix="platform_version",
             data_path=("state", "versions", "linux_build_id"),
             entity_category=EntityCategory.DIAGNOSTIC
-        )
+        ),
+        # === WATER BOOST ===
+        AiraWaterBoostEndSensor(coordinator, entry)
     ]
 
     # PER ZONE LOOP
@@ -1440,3 +1444,41 @@ class AiraCurveSensor(AiraSensorBase):
             return output
         except (KeyError, ValueError, TypeError):
             return {"ambient": [], "supply": []}
+
+
+# ============================================================================
+# WATER BOOST SENSOR
+# ============================================================================
+
+class AiraWaterBoostEndSensor(AiraSensorBase):
+    """Sensor showing the end time of an active water boost."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator: AiraDataUpdateCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "dhw_boost_end")
+
+    @property
+    def native_value(self) -> datetime | None: # type: ignore
+        if not self.coordinator.data:
+            return None
+        try:
+            schedules = self.coordinator.data["state"]["scheduler"]["schedules"]
+            for schedule in schedules:
+                boost = schedule.get("boost")
+                if boost is None:
+                    continue
+                for event in boost.get("events", []):
+                    if event.get("active") is True:
+                        end_dt = event.get("event_end_dt")
+                        if not end_dt:
+                            return None
+                        result = end_dt.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+                        return result
+        except (KeyError, ValueError, TypeError) as e:
+            pass
+        return None
+
+    @property
+    def icon(self) -> str: # type: ignore
+        return "mdi:timer-check-outline" if self.native_value is not None else "mdi:timer-remove-outline"
