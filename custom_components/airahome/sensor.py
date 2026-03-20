@@ -297,7 +297,8 @@ async def async_setup_entry(
             unique_id_suffix="operating_status",
             data_path=("state", "operating_status"),
             replace="OPERATING_STATUS_",
-            icon="mdi:information-outline"
+            icon="mdi:information-outline",
+            entity_category=EntityCategory.DIAGNOSTIC
         ),
         AiraEnumSensor(coordinator, entry,
             unique_id_suffix="active_state",
@@ -367,7 +368,7 @@ async def async_setup_entry(
         ),
         AiraPercentageSensor(coordinator, entry,
             unique_id_suffix=f"zone_{i}_valve_position",
-            data_path=("system_check_state", "valve_status", f"mixing_valve{i}_calculated_position"),
+            data_path=("system_check_state", "valve_status", f"mixing_valve_{i}_calculated_position"),
             icon="mdi:valve",
             entity_category=EntityCategory.DIAGNOSTIC
         ),
@@ -1227,7 +1228,7 @@ class AiraLEDPatternSensor(AiraSensorBase):
     def __init__(self, coordinator: AiraDataUpdateCoordinator, entry: ConfigEntry) -> None:
         """Initialise the sensor."""
         unique_id_suffix = "led_pattern"
-        super().__init__(coordinator, entry, unique_id_suffix, None, None, False)
+        super().__init__(coordinator, entry, unique_id_suffix, None, None, True)
 
     @property
     def native_value(self) -> str | None: # type: ignore

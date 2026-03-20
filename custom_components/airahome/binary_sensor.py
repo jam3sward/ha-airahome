@@ -78,7 +78,7 @@ async def async_setup_entry(
             unique_id_suffix="ou_pump",
             data_path=("system_check_state", "circulation_pump_status", "pump_0_active"),
             icon=("mdi:pump-off", "mdi:pump"),
-            enabled_by_default=False
+            entity_category=EntityCategory.DIAGNOSTIC
         ),
         AiraAlarmsBinarySensor(coordinator, entry)
     ]

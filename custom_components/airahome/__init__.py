@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady, ConfigEntryError
+from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     BLE_CONNECT_TIMEOUT,
@@ -28,7 +29,19 @@ from .coordinator import AiraDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WATER_HEATER, Platform.CLIMATE] # TODO  Platform.CLIMATE
+
+async def async_get_translation(hass: HomeAssistant, category: str, key: str) -> str:
+    """Return a translated string for the given category and key, falling back to the key itself."""
+    translations = await async_get_translations(
+        hass,
+        hass.config.language,
+        category,
+        [DOMAIN],
+    )
+    return translations.get(f"component.{DOMAIN}.{category}.{key}", key)
+
+
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WATER_HEATER, Platform.CLIMATE]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

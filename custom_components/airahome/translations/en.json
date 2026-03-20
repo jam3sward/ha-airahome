@@ -37,6 +37,7 @@
       "cloud_error": "An error occurred while communicating with the cloud service. Please try again later."
     },
     "abort": {
+      "already_in_progress": "Setup for this Aira device is already in progress. This may happen if Home Assistant already discovered it via Bluetooth — check your integrations page for a pending discovery.",
       "unsupported_device": "The selected device is not supported. Only Aira Heat Pumps can be configured for now.",
       "already_configured": "This device is already configured. Please select another device.",
       "no_devices_found": "All devices available in your Aira account are already configured. No new devices to add.",
@@ -220,6 +221,13 @@
       "zone_2_climate": { "name": "Zone 2" }
     }
   },
+  "pump_mode_state": {
+    "unspecified": "unspecified",
+    "idle": "idle",
+    "heating": "heating",
+    "cooling": "cooling",
+    "heating_cooling": "heating/cooling"
+  },
   "device_type": {
     "unspecified": "Unknown Device",
     "heat_pump": "Heat Pump",
@@ -227,13 +235,19 @@
     "inverter": "Inverter",
     "photovoltaic": "Photovoltaic"
   },
-  "zones": {
-    "1": "Single Zone",
-    "2": "Bi Zone"
-  },
-  "phases": {
-    "0": "Unknown (Do NOT select)",
-    "1": "Single Phase",
-    "3": "Three Phase"
+  "selector": {
+    "num_zones": {
+      "options": {
+        "1": "Single Zone",
+        "2": "Bi Zone"
+      }
+    },
+    "num_phases": {
+      "options": {
+        "0": "Unknown (Do NOT select)",
+        "1": "Single Phase",
+        "3": "Three Phase"
+      }
+    }
   }
 }

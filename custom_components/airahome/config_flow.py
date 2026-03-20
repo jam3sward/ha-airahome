@@ -14,8 +14,8 @@ from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.translation import async_get_translations
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
 
 from pyairahome import AiraHome
 from pyairahome.utils.exceptions import AuthenticationError
@@ -23,6 +23,7 @@ from pyairahome.enums import DeviceType
 from grpc._channel import _InactiveRpcError
 from grpc import RpcError, StatusCode
 
+from . import async_get_translation
 from .const import (
     CONF_CERTIFICATE,
     CONF_CLOUD_EMAIL,
@@ -42,17 +43,6 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-
-async def _get_translation(hass: HomeAssistant, category: str, key: str) -> str:
-    translations = await async_get_translations(
-        hass,
-        hass.config.language,
-        category,
-        [DOMAIN]
-    )
-
-    return translations.get(f"component.{DOMAIN}.{category}.{key}", key)
 
 class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Aira Heat Pump."""
@@ -238,7 +228,7 @@ class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
             if device_uuid in already_configured:
                 continue # skip already configured devices
             device_type = device.get("device_id", {}).get("type", "DEVICE_TYPE_UNSPECIFIED").lower().replace("device_type_", "")
-            translated_device_type = await _get_translation(self.hass, "device_type", device_type)
+            translated_device_type = await async_get_translation(self.hass, "device_type", device_type)
             online_status = device.get("online", {}).get("online", False)
             status_str = "🟢" if online_status else "🔴"
             display_name = f"{status_str} {translated_device_type} [{device_uuid}]"
@@ -332,19 +322,18 @@ class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
                 ): vol.All(vol.Coerce(int), vol.Range(min=20, max=300)),
                 vol.Required(
                     CONF_NUM_ZONES,
-                    default=self._installation.get(CONF_NUM_ZONES, DEFAULT_NUM_ZONES)
-                ): vol.In({
-                    1: await _get_translation(self.hass, "zones", "1"),
-                    2: await _get_translation(self.hass, "zones", "2")
-                }),
+                    default=str(self._installation.get(CONF_NUM_ZONES, DEFAULT_NUM_ZONES))
+                ): vol.All(SelectSelector(SelectSelectorConfig(
+                    options=["1", "2"],
+                    translation_key="num_zones",
+                )), vol.Coerce(int)),
                 vol.Required(
                     CONF_NUM_PHASES,
-                    default=self._installation.get(CONF_NUM_PHASES, 0)
-                ): vol.In({
-                    0: await _get_translation(self.hass, "phases", "0"),
-                    1: await _get_translation(self.hass, "phases", "1"),
-                    3: await _get_translation(self.hass, "phases", "3")
-                }),
+                    default=str(self._installation.get(CONF_NUM_PHASES, 0))
+                ): vol.All(SelectSelector(SelectSelectorConfig(
+                    options=["0", "1", "3"],
+                    translation_key="num_phases",
+                )), vol.Coerce(int)),
             }
         )
         
@@ -495,19 +484,18 @@ class AiraHomeOptionsFlowHandler(OptionsFlowWithReload):
                 ): vol.All(vol.Coerce(int), vol.Range(min=20, max=300)),
                 vol.Required(
                     CONF_NUM_ZONES,
-                    default=current_num_zones
-                ): vol.In({
-                    1: await _get_translation(self.hass, "zones", "1"),
-                    2: await _get_translation(self.hass, "zones", "2")
-                }),
+                    default=str(current_num_zones)
+                ): vol.All(SelectSelector(SelectSelectorConfig(
+                    options=["1", "2"],
+                    translation_key="num_zones",
+                )), vol.Coerce(int)),
                 vol.Required(
                     CONF_NUM_PHASES,
-                    default=current_num_phases
-                ): vol.In({
-                    0: await _get_translation(self.hass, "phases", "0"),
-                    1: await _get_translation(self.hass, "phases", "1"),
-                    3: await _get_translation(self.hass, "phases", "3")
-                }),
+                    default=str(current_num_phases)
+                ): vol.All(SelectSelector(SelectSelectorConfig(
+                    options=["0", "1", "3"],
+                    translation_key="num_phases",
+                )), vol.Coerce(int)),
             }
         ),
             description_placeholders={

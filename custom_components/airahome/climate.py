@@ -22,6 +22,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from . import async_get_translation
 from .const import (
     CONF_DEVICE_NAME,
     CONF_DEVICE_UUID,
@@ -419,8 +420,8 @@ class AiraZoneClimate(AiraClimateBase):
                         translation_domain=DOMAIN,
                         translation_key="unsupported_set_temp",
                         translation_placeholders={
-                            "hvac_mode": "cooling",
-                            "pump_mode_state": current_pump_mode_state,
+                            "hvac_mode": await async_get_translation(self.hass, "pump_mode_state", "cooling"),
+                            "pump_mode_state": await async_get_translation(self.hass, "pump_mode_state", current_pump_mode_state),
                         }
                     )
                 setpoint_heating = temp_low
@@ -431,8 +432,8 @@ class AiraZoneClimate(AiraClimateBase):
                         translation_domain=DOMAIN,
                         translation_key="unsupported_set_temp",
                         translation_placeholders={
-                            "hvac_mode": "heating",
-                            "pump_mode_state": current_pump_mode_state,
+                            "hvac_mode": await async_get_translation(self.hass, "pump_mode_state", "heating"),
+                            "pump_mode_state": await async_get_translation(self.hass, "pump_mode_state", current_pump_mode_state),
                         }
                     )
                 setpoint_cooling = temp_high
@@ -444,8 +445,8 @@ class AiraZoneClimate(AiraClimateBase):
                 translation_domain=DOMAIN,
                 translation_key="unsupported_set_temp",
                 translation_placeholders={
-                    "hvac_mode": disallowed_mode,
-                    "pump_mode_state": current_pump_mode_state.replace("_", " "),
+                    "hvac_mode": await async_get_translation(self.hass, "pump_mode_state", disallowed_mode),
+                    "pump_mode_state": await async_get_translation(self.hass, "pump_mode_state", current_pump_mode_state),
                 }
             )
 
