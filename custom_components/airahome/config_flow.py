@@ -47,7 +47,7 @@ _LOGGER = logging.getLogger(__name__)
 class AiraHomeConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Aira Heat Pump."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         """Initialize the config flow."""

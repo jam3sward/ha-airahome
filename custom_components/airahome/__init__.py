@@ -44,6 +44,15 @@ async def async_get_translation(hass: HomeAssistant, category: str, key: str) ->
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WATER_HEATER, Platform.CLIMATE]
 
 
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Reject config entries created with an older version of the integration."""
+    _LOGGER.warning(
+        "Config entry was created with an unsupported version (%s). Please reconfigure the integration.",
+        config_entry.version
+    )
+    return False
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Aira Heat Pump component."""
     hass.data.setdefault(DOMAIN, {})
