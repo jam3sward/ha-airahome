@@ -11,7 +11,7 @@ from time import perf_counter
 
 from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.exceptions import ConfigEntryNotReady, ConfigEntryError
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -19,7 +19,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 from pyairahome import AiraHome
 
-from .const import CONF_DEVICE_NAME, CONF_MAC_ADDRESS, DEFAULT_SHORT_NAME, DOMAIN, STALE_DATA_THRESHOLD, DEFAULT_DATA, BLE_CONNECT_TIMEOUT, BLE_COMMAND_SLEEP
+from .const import CONF_DEVICE_NAME, CONF_MAC_ADDRESS, DEFAULT_SHORT_NAME, DOMAIN, STALE_DATA_THRESHOLD, DEFAULT_DATA, BLE_CONNECT_TIMEOUT, BLE_COMMAND_SLEEP, BLE_RECONNECT_BACKOFF
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,6 +48,7 @@ class AiraDataUpdateCoordinator(DataUpdateCoordinator):
         self._reconnect_task: asyncio.Task | None = None
         self._reconnect_attempts = 0
         self._max_reconnect_attempts = 5
+        self._next_reconnect_at: float = 0.0  # perf_counter timestamp for next allowed reconnect
 
         # Timing and success tracking
         self._last_successful_data = None
@@ -76,15 +77,24 @@ class AiraDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _fetch_all_data(self, start_time: float, rssi: int | None) -> dict[str, Any]:
         """Fetch all data from the Aira device via BLE."""
-        state_data: dict = await self.aira.ble._get_states() # type: ignore[reportAssignmentType]
+        state_data: dict | None = None
+        system_check_state: dict | None = None
+
+        try:
+            state_data = await self.aira.ble._get_states() # type: ignore[reportAssignmentType]
+        except Exception as err:
+            _LOGGER.warning("Failed to fetch state data: %s", err)
 
         await asyncio.sleep(BLE_COMMAND_SLEEP) # ensure BLE_COMMAND_SLEEP between calls
 
-        system_check_state: dict = await self.aira.ble._get_system_check_state() # type: ignore
+        try:
+            system_check_state = await self.aira.ble._get_system_check_state() # type: ignore
+        except Exception as err:
+            _LOGGER.warning("Failed to fetch system check state: %s", err)
 
-        # Reset reconnect attempts on successful data fetch
-        self._reconnect_attempts = 0
-        
+        if state_data is None and system_check_state is None:
+            raise UpdateFailed("Both BLE data fetches failed")
+
         elapsed = perf_counter() - start_time
         _LOGGER.debug("BLE data fetch completed in %.1f seconds", elapsed)
                         
@@ -120,6 +130,9 @@ class AiraDataUpdateCoordinator(DataUpdateCoordinator):
         # Only store as successful if we actually got some real data
         # Check if at least state data has content (it's the most important)
         if successful == 2:
+            # Reset reconnect attempts and backoff only when we got clean complete data from both calls
+            self._reconnect_attempts = 0
+            self._next_reconnect_at = 0.0
             self._last_successful_data = result
             # Record monotonic timestamp for age checks
             self._last_successful_timestamp = perf_counter()
@@ -245,31 +258,36 @@ class AiraDataUpdateCoordinator(DataUpdateCoordinator):
                     stale_result["connected"] = False
                     stale_result["rssi"] = rssi  # Update RSSI even if using stale data
 
-            # Device is not connected, attempt reconnection
+            # Device is not connected, attempt reconnection with exponential backoff
             if self._reconnect_attempts < self._max_reconnect_attempts:
-                _LOGGER.debug(
-                    "Not connected, scheduling reconnect (attempt %d/%d)",
-                    self._reconnect_attempts + 1,
-                    self._max_reconnect_attempts
-                )
-                self._schedule_reconnect()
-                self._reconnect_attempts += 1
+                now = perf_counter()
+                if now >= self._next_reconnect_at:
+                    _LOGGER.debug(
+                        "Not connected, scheduling reconnect (attempt %d/%d)",
+                        self._reconnect_attempts + 1,
+                        self._max_reconnect_attempts
+                    )
+                    self._schedule_reconnect()
+                    delay = BLE_RECONNECT_BACKOFF[min(self._reconnect_attempts, len(BLE_RECONNECT_BACKOFF) - 1)]
+                    self._next_reconnect_at = now + delay
+                    self._reconnect_attempts += 1
+                else:
+                    _LOGGER.debug(
+                        "Backoff active, next reconnect in %.0f seconds",
+                        self._next_reconnect_at - now
+                    )
             else:
-                # If we reach this point something is seriously wrong, the best thing is asking the user to
-                # manually intervene. The most common issue in my experience is the bluetooth cache being
-                # stale because aira seems to not send Service Changed indications properly. Rebooting the host
-                # is the only way to recover from this since it should reset the cache. For more infos check
-                # https://github.com/Invy55/ha-airahome/wiki/Bluetooth-Issues
+                # Max attempts reached -> schedule a full entry reload so HA cleanly tears down BLE,
+                # re-runs async_setup_entry and retries with native ConfigEntryNotReady backoff.
+                # See https://github.com/Invy55/ha-airahome/wiki/Bluetooth-Issues
                 _LOGGER.error(
-                    "Max reconnect attempts (%d) reached, skipping update and resetting attempts.",
+                    "Max reconnect attempts (%d) reached, scheduling entry reload.",
                     self._max_reconnect_attempts
                 )
-
-                raise ConfigEntryError(
-                    "Bluetooth connection failed after multiple attempts. "
-                    "This often means the host's Bluetooth cache is stale -- rebooting the host / replugging the adapter (or removing/unpairing the device and re-pairing) may help. "
-                    "Another solution could be using esphome proxies for connecting to the device, since we can forcely disable caching there. "
-                    "See https://github.com/Invy55/ha-airahome/wiki/Bluetooth-Issues for more details."
+                self._reconnect_attempts = 0
+                self._next_reconnect_at = 0.0
+                self.hass.async_create_task(
+                    self.hass.config_entries.async_reload(self.config_entry.entry_id)
                 )
             
             return stale_result

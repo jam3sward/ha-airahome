@@ -24,6 +24,7 @@ STALE_DATA_THRESHOLD = 600  # seconds (10 minutes) - keep old data if fresher th
 BLE_CONNECT_TIMEOUT = 30  # seconds - timeout for establishing BLE connection
 BLE_DISCOVERY_TIMEOUT = 20  # seconds - timeout for BLE device discovery
 BLE_COMMAND_SLEEP = 1.5  # seconds - delay between BLE commands to avoid overwhelming the device
+BLE_RECONNECT_BACKOFF = (30, 60, 120, 240)  # seconds to wait after each reconnect attempt before the next
 
 # Attributes
 ATTR_MAC_ADDRESS = "mac_address"
