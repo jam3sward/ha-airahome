@@ -236,6 +236,12 @@
     "inverter": "Inverter",
     "photovoltaic": "Photovoltaic"
   },
+  "issues": {
+    "migration_required": {
+      "title": "Aira integration needs to be reconfigured",
+      "description": "This Aira instance was set up with an older version and is no longer compatible. Please delete it and set it up again.\nSensors will be recreated with the same internal ID, so everything should stay intact."
+    }
+  },
   "selector": {
     "num_zones": {
       "options": {

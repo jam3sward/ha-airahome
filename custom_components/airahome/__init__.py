@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady, ConfigEntryError
+from homeassistant.helpers.issue_registry import async_create_issue, IssueSeverity
 from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
@@ -49,6 +50,14 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
     _LOGGER.warning(
         "Config entry was created with an unsupported version (%s). Please reconfigure the integration.",
         config_entry.version
+    )
+    async_create_issue(
+        hass,
+        DOMAIN,
+        "migration_required",
+        is_fixable=False,
+        severity=IssueSeverity.ERROR,
+        translation_key="migration_required",
     )
     return False
 
